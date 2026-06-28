@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../audit_logs_page.dart';
 
 class AuditLogsTab extends StatefulWidget {
   const AuditLogsTab({super.key});
@@ -243,36 +244,51 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: alerts.map((title) {
-          return Container(
-            width: 180,
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: fgColor),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: alerts.map((title) {
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AuditLogsPage(alertType: title),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "0 Events",
-                  style: TextStyle(fontSize: 12, color: fgColor.withValues(alpha: 0.6)),
-                ),
-              ],
+              );
+            },
+            child: Container(
+              width: 180,
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: fgColor),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title == "Failed Login Attempts" ? "3 Events" : 
+                    title == "Multiple Failed Passwords" ? "2 Events" :
+                    title == "Suspicious Login" ? "1 Event" : "0 Events",
+                    style: TextStyle(fontSize: 12, color: fgColor.withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),
       ),
+     ),
     );
   }
 

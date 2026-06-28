@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:csc_picker/csc_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../admin/presentation/admin_dashboard_screen.dart';
 
@@ -63,19 +64,6 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Clean top nav with Back button
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back_ios_new, size: 20, color: fgColor.withValues(alpha: 0.6)),
-                      onPressed: _previousStep,
-                    ),
-                  ],
-                ),
-              ),
-
               // Main PageView Container
               Expanded(
                 child: PageView(
@@ -282,19 +270,59 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
           const SizedBox(height: 24),
           _Field(label: 'Registration Number', hint: 'Enter registration/license number', isDark: isDark, prefixIcon: Icons.badge_outlined),
           const SizedBox(height: 24),
-          _Field(label: 'Clinic Type', hint: 'Select clinic type', isDark: isDark, isDropdown: true, prefixIcon: Icons.category_outlined),
+          _Field(label: 'GST Number', hint: 'Enter GST number', isDark: isDark, prefixIcon: Icons.receipt_long_outlined),
+          const SizedBox(height: 24),
+          _Field(label: 'Clinic Type', hint: 'Enter clinic type', isDark: isDark, isDropdown: false, prefixIcon: Icons.category_outlined),
           const SizedBox(height: 24),
           _Field(label: 'Contact Number', hint: 'Enter contact number', isDark: isDark, prefixIcon: Icons.phone_outlined),
           const SizedBox(height: 24),
           _Field(label: 'Email', hint: 'Enter clinic email', isDark: isDark, prefixIcon: Icons.email_outlined),
           const SizedBox(height: 24),
-          _Field(label: 'State', hint: 'Enter state', isDark: isDark, prefixIcon: Icons.map_outlined),
-          const SizedBox(height: 24),
-          _Field(label: 'District', hint: 'Enter district', isDark: isDark, prefixIcon: Icons.map_outlined),
+          Text('Location', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fgColor.withValues(alpha: 0.6))),
+          const SizedBox(height: 8),
+          CSCPicker(
+            showStates: true,
+            showCities: true,
+            flagState: CountryFlag.DISABLE,
+            dropdownDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.6),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+            ),
+            disabledDropdownDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.02),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+            ),
+            countrySearchPlaceholder: "Country",
+            stateSearchPlaceholder: "State",
+            citySearchPlaceholder: "City",
+            countryDropdownLabel: "Country",
+            stateDropdownLabel: "State",
+            cityDropdownLabel: "District/City",
+            defaultCountry: CscCountry.India,
+            disableCountry: true, // we only want India
+            selectedItemStyle: TextStyle(
+              color: fgColor,
+              fontSize: 14,
+            ),
+            dropdownHeadingStyle: TextStyle(
+              color: fgColor,
+              fontSize: 17,
+              fontWeight: FontWeight.bold
+            ),
+            dropdownItemStyle: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 14,
+            ),
+            dropdownDialogRadius: 10.0,
+            searchBarRadius: 10.0,
+            onCountryChanged: (value) {},
+            onStateChanged: (value) {},
+            onCityChanged: (value) {},
+          ),
           const SizedBox(height: 24),
           _Field(label: 'Full Address', hint: 'Enter full address...', isDark: isDark, maxLines: 3, prefixIcon: Icons.location_on_outlined),
-          const SizedBox(height: 24),
-          _Field(label: 'City', hint: 'Enter city', isDark: isDark, prefixIcon: Icons.location_city_outlined),
           const SizedBox(height: 24),
           _Field(label: 'Pincode', hint: 'Enter pincode', isDark: isDark, prefixIcon: Icons.pin_drop_outlined),
           
@@ -367,13 +395,9 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.primaryOrange.withValues(alpha: 0.1),
-            ),
-            child: const Icon(Icons.check_circle_outline, size: 80, color: AppTheme.primaryOrange),
+          Image.asset(
+            'assets/images/medfliq_icon.png',
+            height: 100,
           ),
           const SizedBox(height: 40),
           Text(
@@ -621,7 +645,7 @@ class _ChecklistItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: isMet ? fgColor : fgColor.withValues(alpha: 0.5),
+            color: isMet ? AppTheme.primaryOrange : fgColor.withValues(alpha: 0.5),
           ),
         ),
       ],
@@ -660,8 +684,6 @@ class _Step4ContentState extends State<_Step4Content> {
           prefixIcon: Icons.lock_outline,
           onChanged: (val) => setState(() => _password = val),
         ),
-        const SizedBox(height: 12),
-        _PasswordStrengthIndicator(password: _password),
         const SizedBox(height: 24),
         _Field(
           label: 'Confirm Password',
@@ -692,66 +714,6 @@ class _Step4ContentState extends State<_Step4Content> {
         ),
         widget.bottomActions,
       ],
-    );
-  }
-}
-
-class _PasswordStrengthIndicator extends StatelessWidget {
-  final String password;
-  
-  const _PasswordStrengthIndicator({required this.password});
-
-  @override
-  Widget build(BuildContext context) {
-    bool hasMinLength = password.length >= 8;
-    bool hasUppercase = password.contains(RegExp(r'[A-Z]'));
-    bool hasNumberOrSpecial = password.contains(RegExp(r'[0-9!@#\$&*~]'));
-
-    int strength = 0;
-    if (hasMinLength) strength++;
-    if (hasUppercase) strength++;
-    if (hasNumberOrSpecial) strength++;
-
-    double widthFactor = 0.0;
-    Color barColor = Colors.transparent;
-
-    if (password.isNotEmpty) {
-      if (strength <= 1) {
-        widthFactor = 0.33;
-        barColor = Colors.red;
-      } else if (strength == 2) {
-        widthFactor = 0.66;
-        barColor = Colors.orange;
-      } else {
-        widthFactor = 1.0;
-        barColor = Colors.green;
-      }
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          height: 6,
-          width: constraints.maxWidth,
-          decoration: BoxDecoration(
-            color: Colors.grey.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: Stack(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                width: constraints.maxWidth * widthFactor,
-                decoration: BoxDecoration(
-                  color: barColor,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
     );
   }
 }

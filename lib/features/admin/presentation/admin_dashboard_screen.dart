@@ -6,7 +6,8 @@ import 'widgets/overview_tab.dart';
 import 'widgets/doctor_schedule_tab.dart'; 
 import 'widgets/user_management_tab.dart';
 import 'widgets/audit_logs_tab.dart';
-import 'widgets/profile_tab.dart'; // Add this import
+import 'widgets/profile_tab.dart';
+import 'system_health_page.dart'; // Add this import
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -83,7 +84,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
     // Indices 0-4 correspond to the main dashboard tabs
     if (index < 5) {
       _onTabTapped(index);
-    } else if (index == 8) {
+    } else if (index == 5) {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const SystemHealthPage(),
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: CurveTween(curve: Curves.easeOutCubic).animate(animation),
+              child: SlideTransition(
+                position: Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                ),
+                child: child,
+              ),
+            );
+          },
+        ),
+      );
+    } else if (index == 9) {
       // Logout logic
       Navigator.pushReplacement(
         context,
@@ -311,14 +331,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                   _buildDrawerItem(index: 2, icon: Icons.people_rounded, title: "User Management", fgColor: fgColor),
                   _buildDrawerItem(index: 3, icon: Icons.list_alt_rounded, title: "Audit Logs", fgColor: fgColor),
                   _buildDrawerItem(index: 4, icon: Icons.person_rounded, title: "Profile", fgColor: fgColor),
+                  _buildDrawerItem(index: 5, icon: Icons.monitor_heart_outlined, title: "System Health", fgColor: fgColor),
                   const SizedBox(height: 24),
                   Divider(color: fgColor.withValues(alpha: 0.08)),
                   const SizedBox(height: 24),
-                  _buildDrawerItem(index: 5, icon: Icons.settings_rounded, title: "Settings", fgColor: fgColor),
-                  _buildDrawerItem(index: 6, icon: Icons.help_outline_rounded, title: "Help & Support", fgColor: fgColor),
-                  _buildDrawerItem(index: 7, icon: Icons.privacy_tip_outlined, title: "Privacy Policy", fgColor: fgColor),
+                  _buildDrawerItem(index: 6, icon: Icons.settings_rounded, title: "Settings", fgColor: fgColor),
+                  _buildDrawerItem(index: 7, icon: Icons.help_outline_rounded, title: "Help & Support", fgColor: fgColor),
+                  _buildDrawerItem(index: 8, icon: Icons.privacy_tip_outlined, title: "Privacy Policy", fgColor: fgColor),
                   const SizedBox(height: 40),
-                  _buildDrawerItem(index: 8, icon: Icons.logout_rounded, title: "Logout", fgColor: fgColor),
+                  _buildDrawerItem(index: 9, icon: Icons.logout_rounded, title: "Logout", fgColor: fgColor),
                 ],
               ),
             ),
@@ -390,6 +411,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSystemHealthChip(String label, String value, Color statusColor, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            "$label: $value",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -185,8 +185,11 @@ class _SplashScreenState extends State<SplashScreen>
             double startY = size.height / 2 - _kDotRadius;
             double endY   = targetY + (targetH / 2) - _kDotRadius; // Target is the vertical center of the button
             
+            double startX = size.width / 2 + 10 - _kDotRadius; // Starts 10px right due to earlier center shift
+            double endX   = size.width / 2 - _kDotRadius;      // Centers smoothly for the button morph
+            
             morphY = startY + (endY - startY) * p;
-            morphX = size.width / 2 - _kDotRadius;
+            morphX = startX + (endX - startX) * p;
           } 
           // Phase 4b: Expand to button shape (0.828 -> 0.897)
           else {
@@ -219,10 +222,12 @@ class _SplashScreenState extends State<SplashScreen>
             // ── Layer 2: Animated Logo Lockup (Phases 1-3) ────────────────
             if (showLockup)
               Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
+                child: Transform.translate(
+                  offset: const Offset(10, 0), // Compensates for the text being pulled left by 20px
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
                     // Icon / dot stack (tight bounding box to reduce gap)
                     SizedBox(
                       width: 68, height: 80,
@@ -266,14 +271,15 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Align(
                         alignment: Alignment.centerLeft,
                         widthFactor: _textWidthFactor,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 0),
+                        child: Transform.translate(
+                          offset: const Offset(-20, 0), // Pull the text closer to the icon
                           child: _buildWordmark(isDark),
                         ),
                       ),
                     ),
                   ],
                 ),
+               ),
               ),
 
             // ── Layer 3: Phase 4 Hero Morph (The Dot -> Button) ───────────
@@ -293,12 +299,15 @@ class _SplashScreenState extends State<SplashScreen>
                       opacity: _showMorphButtonLabel ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 400),
                       curve: Curves.easeOut,
-                      child: const Text(
-                        'Login',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      child: const Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

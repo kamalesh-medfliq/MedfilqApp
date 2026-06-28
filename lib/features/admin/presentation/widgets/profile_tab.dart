@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../main.dart'; // To access themeNotifier
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -10,8 +12,13 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   bool _is2FAEnabled = false;
-  bool _isDarkModeEnabled = false;
   bool _notificationsEnabled = true;
+
+  Future<void> _setTheme(ThemeMode mode, int index) async {
+    themeNotifier.value = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('themeMode', index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,13 +169,42 @@ class _ProfileTabState extends State<ProfileTab> {
               isDark: isDark, cardColor: cardColor, borderColor: borderColor, fgColor: fgColor,
               child: Column(
                 children: [
-                  SwitchListTile(
+                  ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    title: Text("Theme / Dark Mode", style: TextStyle(color: fgColor, fontSize: 15, fontWeight: FontWeight.w600)),
-                    value: _isDarkModeEnabled,
-                    activeColor: AppTheme.primaryOrange,
-                    onChanged: (val) => setState(() => _isDarkModeEnabled = val),
-                    secondary: Icon(Icons.dark_mode_outlined, color: fgColor.withValues(alpha: 0.6)),
+                    leading: Icon(Icons.palette_outlined, color: fgColor.withValues(alpha: 0.6)),
+                    title: Text("Theme Preferences", style: TextStyle(color: fgColor, fontSize: 15, fontWeight: FontWeight.w600)),
+                    trailing: ValueListenableBuilder<ThemeMode>(
+                      valueListenable: themeNotifier,
+                      builder: (context, currentMode, _) {
+                        String currentLabel = "System Default";
+                        if (currentMode == ThemeMode.light) currentLabel = "Light";
+                        if (currentMode == ThemeMode.dark) currentLabel = "Dark";
+                        
+                        return PopupMenuButton<int>(
+                          initialValue: currentMode == ThemeMode.light ? 1 : (currentMode == ThemeMode.dark ? 2 : 0),
+                          onSelected: (val) {
+                            if (val == 0) _setTheme(ThemeMode.system, 0);
+                            else if (val == 1) _setTheme(ThemeMode.light, 1);
+                            else if (val == 2) _setTheme(ThemeMode.dark, 2);
+                          },
+                          color: isDark ? const Color(0xFF2C2A29) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(currentLabel, style: TextStyle(color: fgColor.withValues(alpha: 0.6), fontSize: 14)),
+                              const SizedBox(width: 8),
+                              Icon(Icons.keyboard_arrow_down, color: fgColor.withValues(alpha: 0.4)),
+                            ],
+                          ),
+                          itemBuilder: (context) => [
+                            PopupMenuItem(value: 0, child: Text("System Default", style: TextStyle(color: fgColor))),
+                            PopupMenuItem(value: 1, child: Text("Light", style: TextStyle(color: fgColor))),
+                            PopupMenuItem(value: 2, child: Text("Dark", style: TextStyle(color: fgColor))),
+                          ],
+                        );
+                      }
+                    ),
                   ),
                   Divider(color: borderColor, height: 1),
                   ListTile(

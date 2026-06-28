@@ -12,7 +12,7 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
   String _selectedTimeFilter = "Today";
   bool _isGridView = true;
 
-  final List<Map<String, dynamic>> _dummyDoctors = [
+  List<Map<String, dynamic>> _dummyDoctors = [
     {
       "name": "Dr. Sarah Jenkins",
       "department": "Cardiology",
@@ -57,7 +57,9 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () {
+          _showSnackBar("Opening Add Schedule form...");
+        },
         backgroundColor: AppTheme.primaryOrange,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text("Add Schedule", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -79,6 +81,72 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppTheme.primaryOrange,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _handleMenuAction(String action, Map<String, dynamic> doc) {
+    setState(() {
+      if (action == "Delete Schedule" || action == "Cancel Schedule") {
+        _dummyDoctors.remove(doc);
+        _showSnackBar("Action completed successfully");
+      } else if (action == "Mark Leave") {
+        doc["status"] = "On Leave";
+        _showSnackBar("Status updated to On Leave");
+      } else if (action == "Emergency Assignment") {
+        doc["status"] = "Busy";
+        _showSnackBar("Status updated to Busy");
+      } else if (action == "Add Extra Slot") {
+        _showAddSlotModal(doc);
+      } else {
+        _showSnackBar("$action action triggered");
+      }
+    });
+  }
+
+  void _showAddSlotModal(Map<String, dynamic> doc) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Add Extra Slot"),
+          content: Text("Add an extra slot for ${doc["name"]}?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _dummyDoctors.add({
+                    "name": doc["name"],
+                    "department": doc["department"],
+                    "time": "06:00 PM - 08:00 PM", // Default extra time
+                    "room": doc["room"],
+                    "patients": "0 Patients Scheduled",
+                    "status": "Available",
+                  });
+                  _showSnackBar("Extra slot added successfully");
+                });
+              },
+              child: const Text("Add"),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -218,6 +286,25 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
   }
 
   Widget _buildDoctorCardsGrid(bool isDark, Color cardColor, Color borderColor, Color fgColor) {
+    if (_dummyDoctors.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 64),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inbox_rounded, size: 64, color: fgColor.withValues(alpha: 0.2)),
+              const SizedBox(height: 16),
+              Text(
+                "No records found",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: fgColor.withValues(alpha: 0.5)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -348,6 +435,7 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
               icon: Icon(Icons.more_vert, color: fgColor.withValues(alpha: 0.6)),
               color: isDark ? const Color(0xFF2C2A29) : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              onSelected: (action) => _handleMenuAction(action, data),
               itemBuilder: (context) => [
                 _buildMenuItem("Edit Schedule", Icons.edit_outlined, fgColor),
                 _buildMenuItem("Delete Schedule", Icons.delete_outline, Colors.red),

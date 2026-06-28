@@ -10,8 +10,9 @@ class UserManagementTab extends StatefulWidget {
 
 class _UserManagementTabState extends State<UserManagementTab> {
   final Set<int> _selectedUserIds = {};
+  bool _isBulkMode = false;
 
-  final List<Map<String, dynamic>> _dummyUsers = [
+  List<Map<String, dynamic>> _dummyUsers = [
     {
       "id": 101,
       "name": "Dr. Emily Chen",
@@ -138,9 +139,17 @@ class _UserManagementTabState extends State<UserManagementTab> {
     setState(() {
       if (_selectedUserIds.contains(id)) {
         _selectedUserIds.remove(id);
+        if (_selectedUserIds.isEmpty) _isBulkMode = false;
       } else {
         _selectedUserIds.add(id);
       }
+    });
+  }
+
+  void _enableBulkMode(int id) {
+    setState(() {
+      _isBulkMode = true;
+      _selectedUserIds.add(id);
     });
   }
 
@@ -150,8 +159,21 @@ class _UserManagementTabState extends State<UserManagementTab> {
         _selectedUserIds.addAll(_dummyUsers.map((e) => e["id"] as int));
       } else {
         _selectedUserIds.clear();
+        _isBulkMode = false;
       }
     });
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppTheme.primaryOrange,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   void _showUserProfileModal(Map<String, dynamic> user, bool isDark, Color bgColor, Color fgColor, Color cardColor, Color borderColor) {
@@ -166,6 +188,46 @@ class _UserManagementTabState extends State<UserManagementTab> {
         fgColor: fgColor, 
         cardColor: cardColor, 
         borderColor: borderColor,
+      ),
+    );
+  }
+
+  void _showAddStaffModal(bool isDark, Color bgColor, Color fgColor, Color cardColor, Color borderColor) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddStaffModal(
+        isDark: isDark, 
+        bgColor: bgColor, 
+        fgColor: fgColor, 
+        cardColor: cardColor, 
+        borderColor: borderColor,
+        onAdd: () {
+          setState(() {
+            _dummyUsers.insert(0, {
+              "id": DateTime.now().millisecondsSinceEpoch % 10000,
+              "name": "New Staff Member",
+              "role": "Doctor",
+              "department": "General",
+              "status": "Active",
+              "email": "new.staff@example.com",
+              "phone": "+1 555-0000",
+              "gender": "Not Specified",
+              "qualification": "MD",
+              "license": "MED-000",
+              "joiningDate": "Today",
+              "lastLogin": "Never",
+              "emailVerified": false,
+              "phoneVerified": false,
+              "permissions": {
+                "View Patients": true,
+                "Edit Patients": false,
+              }
+            });
+            _showSnackBar("New staff member added successfully");
+          });
+        },
       ),
     );
   }
@@ -208,11 +270,11 @@ class _UserManagementTabState extends State<UserManagementTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Team Directory", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: fgColor)),
+            Text("Staff Directory", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: fgColor)),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () => _showAddStaffModal(isDark, const Color(0xFFF9F6F0), fgColor, cardColor, borderColor),
               icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text("Add Team Member", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: const Text("Add Staff", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryOrange,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -353,27 +415,61 @@ class _UserManagementTabState extends State<UserManagementTab> {
 
     return Column(
       children: [
-        Row(
-          children: [
-            Checkbox(
-              value: allSelected,
-              onChanged: _toggleAllSelection,
-              activeColor: AppTheme.primaryOrange,
-              side: BorderSide(color: fgColor.withValues(alpha: 0.5)),
-            ),
-            Text(
-              "Select All",
-              style: TextStyle(color: fgColor.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
-            ),
-            const Spacer(),
-            Text(
-              "${_dummyUsers.length} Members Total",
-              style: TextStyle(color: fgColor.withValues(alpha: 0.5), fontSize: 13),
-            ),
-          ],
-        ),
+        if (_isBulkMode)
+          Row(
+            children: [
+              Checkbox(
+                value: allSelected,
+                onChanged: _toggleAllSelection,
+                activeColor: AppTheme.primaryOrange,
+                side: BorderSide(color: fgColor.withValues(alpha: 0.5)),
+              ),
+              Text(
+                "Select All",
+                style: TextStyle(color: fgColor.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
+              ),
+              const Spacer(),
+              Text(
+                "${_selectedUserIds.length} Selected",
+                style: const TextStyle(color: AppTheme.primaryOrange, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                "${_dummyUsers.length} Staff Total",
+                style: TextStyle(color: fgColor.withValues(alpha: 0.5), fontSize: 13),
+              ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                "${_dummyUsers.length} Staff Total",
+                style: TextStyle(color: fgColor.withValues(alpha: 0.5), fontSize: 13),
+              ),
+            ],
+          ),
         const SizedBox(height: 12),
-        LayoutBuilder(
+        if (_dummyUsers.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 64),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.people_outline_rounded, size: 64, color: fgColor.withValues(alpha: 0.2)),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No records found",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: fgColor.withValues(alpha: 0.5)),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          LayoutBuilder(
           builder: (context, constraints) {
             final double width = constraints.maxWidth;
             final int crossAxisCount = width > 1000 ? 4 : (width > 700 ? 3 : (width > 450 ? 2 : 1));
@@ -408,26 +504,40 @@ class _UserManagementTabState extends State<UserManagementTab> {
       default: statusColor = Colors.grey;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isSelected ? AppTheme.primaryOrange.withValues(alpha: 0.05) : cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isSelected ? AppTheme.primaryOrange.withValues(alpha: 0.5) : borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Checkbox(
-                  value: isSelected,
-                  onChanged: (_) => _toggleUserSelection(user["id"]),
-                  activeColor: AppTheme.primaryOrange,
-                  side: BorderSide(color: fgColor.withValues(alpha: 0.4)),
-                ),
+    return GestureDetector(
+      onLongPress: () {
+        if (!_isBulkMode) {
+          _enableBulkMode(user["id"]);
+        }
+      },
+      onTap: () {
+        if (_isBulkMode) {
+          _toggleUserSelection(user["id"]);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryOrange.withValues(alpha: 0.05) : cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? AppTheme.primaryOrange.withValues(alpha: 0.5) : borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (_isBulkMode)
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => _toggleUserSelection(user["id"]),
+                      activeColor: AppTheme.primaryOrange,
+                      side: BorderSide(color: fgColor.withValues(alpha: 0.4)),
+                    )
+                  else
+                    const SizedBox(width: 48, height: 48),
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_horiz, color: fgColor.withValues(alpha: 0.5)),
                   color: isDark ? const Color(0xFF2C2A29) : Colors.white,
@@ -435,6 +545,23 @@ class _UserManagementTabState extends State<UserManagementTab> {
                   onSelected: (value) {
                     if (value == "View Profile" || value == "Edit") {
                       _showUserProfileModal(user, isDark, bgColor, fgColor, cardColor, borderColor);
+                    } else if (value == "Delete") {
+                      setState(() {
+                        _dummyUsers.remove(user);
+                        _selectedUserIds.remove(user["id"]);
+                        if (_selectedUserIds.isEmpty) _isBulkMode = false;
+                        _showSnackBar("Action completed successfully");
+                      });
+                    } else if (value == "Suspend") {
+                      setState(() {
+                        user["status"] = "Inactive";
+                        _showSnackBar("User suspended");
+                      });
+                    } else if (value == "Activate") {
+                      setState(() {
+                        user["status"] = "Active";
+                        _showSnackBar("User activated");
+                      });
                     }
                   },
                   itemBuilder: (context) => [
@@ -444,7 +571,6 @@ class _UserManagementTabState extends State<UserManagementTab> {
                     _buildMenuItem("Activate", Icons.check_circle_outline, Colors.green),
                     _buildMenuItem("Reset Password", Icons.lock_reset_outlined, fgColor),
                     _buildMenuItem("View Profile", Icons.person_outline, fgColor),
-                    _buildMenuItem("Change Role", Icons.manage_accounts_outlined, fgColor),
                   ],
                 ),
               ],
@@ -525,7 +651,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -778,6 +904,139 @@ class _UserProfileModalState extends State<_UserProfileModal> {
         text,
         style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
       ),
+    );
+  }
+}
+
+class _AddStaffModal extends StatefulWidget {
+  final bool isDark;
+  final Color bgColor;
+  final Color fgColor;
+  final Color cardColor;
+  final Color borderColor;
+  final VoidCallback? onAdd;
+
+  const _AddStaffModal({
+    required this.isDark,
+    required this.bgColor,
+    required this.fgColor,
+    required this.cardColor,
+    required this.borderColor,
+    this.onAdd,
+  });
+
+  @override
+  State<_AddStaffModal> createState() => _AddStaffModalState();
+}
+
+class _AddStaffModalState extends State<_AddStaffModal> {
+  String _selectedRole = 'Doctor';
+  bool _obscurePassword = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: widget.bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Add Staff", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: widget.fgColor)),
+                  IconButton(
+                    icon: Icon(Icons.close, color: widget.fgColor.withValues(alpha: 0.5)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildField("Full Name", "Enter name", Icons.person_outline),
+              const SizedBox(height: 16),
+              _buildField("Phone Number", "Enter phone", Icons.phone_outlined),
+              const SizedBox(height: 16),
+              _buildField("Email Address", "Enter email", Icons.email_outlined),
+              const SizedBox(height: 16),
+              Text("Role", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: _inputDecoration("Select role"),
+                dropdownColor: widget.cardColor,
+                items: ["Doctor", "Nurse", "Administrator", "Receptionist", "Pharmacist"]
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r, style: TextStyle(color: widget.fgColor))))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedRole = val);
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildField("Password", "Create password", Icons.lock_outline, obscure: _obscurePassword, onToggleObscure: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              }),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (widget.onAdd != null) {
+                    widget.onAdd!();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("Add Staff", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(String label, String hint, IconData icon, {bool obscure = false, VoidCallback? onToggleObscure}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
+        const SizedBox(height: 8),
+        TextFormField(
+          obscureText: obscure,
+          style: TextStyle(color: widget.fgColor, fontSize: 15),
+          decoration: _inputDecoration(hint).copyWith(
+            prefixIcon: Icon(icon, color: widget.fgColor.withValues(alpha: 0.4), size: 20),
+            suffixIcon: onToggleObscure != null 
+              ? IconButton(
+                  icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: widget.fgColor.withValues(alpha: 0.4), size: 20),
+                  onPressed: onToggleObscure,
+                )
+              : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: widget.fgColor.withValues(alpha: 0.4)),
+      filled: true,
+      fillColor: widget.cardColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.borderColor)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.borderColor)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryOrange)),
     );
   }
 }
