@@ -371,3 +371,21 @@ flutter pub get
 ```bash
 flutter run
 ```
+
+---
+
+# 5. Full-Stack Integration (Recent Updates)
+
+## **Networking & API**
+- **ApiClient (`dio`)**: Implemented a robust singleton `ApiClient` to manage network requests across Web, Android, and iOS.
+- **JWT Authentication**: Integrated `flutter_secure_storage` to securely cache JWT tokens. A global Dio Interceptor automatically attaches `Authorization: Bearer <token>` to all protected routes.
+- **State Management**: Built `AuthProvider` to centralize the `registerClinic` and `login` logic, gracefully handling `_isLoading` UI states and error parsing.
+
+## **UI Polish & Theming**
+- **System Overlay**: Added `SystemUiOverlayStyle` to blend the Android system bottom navigation bar flawlessly with the application's edge-to-edge dark/light theme.
+- **Typography**: Upgraded the entire application's font stack to **Roboto Regular 400** via `google_fonts` for maximum readability and a premium feel.
+- **Micro-Animations**: Enhanced the bottom navigation bar with WhatsApp-style `AnimatedScale` pop animations and `HapticFeedback.lightImpact()` on tap.
+- **Dynamic Routing**: Configured the App Bar to dynamically update titles (e.g., "Doctor Schedule", "User Management") based on the actively selected shell tab.
+
+## **Data Hydration**
+- **User Management Tab**: Connected the dashboard directory to the backend `GET /users` API. Replaced static dummy placeholders with real, secure data parsed directly from the PostgreSQL database.
