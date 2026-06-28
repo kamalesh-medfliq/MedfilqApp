@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../providers/auth_provider.dart';
 import 'clinic_signup_screen.dart';
 import '../../admin/presentation/admin_dashboard_screen.dart';
 
@@ -26,6 +28,9 @@ class LoginScreenState extends State<LoginScreen>
   late final AnimationController _cardFadeCtrl;
   late final Animation<double> _cardFadeAnim;
 
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +50,8 @@ class LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
     _cardFadeCtrl.dispose();
     super.dispose();
   }
@@ -106,6 +113,7 @@ class LoginScreenState extends State<LoginScreen>
           hint: 'Your Email Id',
           isDark: isDark,
           prefixIcon: Icons.email_outlined,
+          controller: _emailController,
         ),
         const SizedBox(height: 20),
         _Field(
@@ -114,37 +122,73 @@ class LoginScreenState extends State<LoginScreen>
           isDark: isDark,
           obscure: true,
           prefixIcon: Icons.lock_outline,
+          controller: _passwordController,
         ),
         const SizedBox(height: 40),
         SizedBox(
           key: buttonKey,
           height: 52,
-          child: widget.hideButton
-              ? const SizedBox.shrink()
-              : ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryOrange,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+            child: widget.hideButton
+                ? const SizedBox.shrink()
+                : Consumer<AuthProvider>(
+                    builder: (context, auth, child) {
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryOrange,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: auth.isLoading
+                            ? null
+                            : () async {
+                                final email = _emailController.text.trim();
+                                final password = _passwordController.text;
+
+                                if (email.isEmpty || password.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter both email and password'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final success = await auth.login(email, password);
+                                if (success && mounted) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AdminDashboardScreen(),
+                                    ),
+                                  );
+                                } else if (auth.error != null && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(auth.error!)),
+                                  );
+                                }
+                              },
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Login',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                      );
+                    },
                   ),
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminDashboardScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
-        ),
+          ),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -336,13 +380,15 @@ class _Field extends StatefulWidget {
   final bool isDark;
   final bool obscure;
   final IconData prefixIcon;
+  final TextEditingController? controller;
 
   const _Field({
     required this.label,
     required this.hint,
     required this.isDark,
-    this.obscure = false,
     required this.prefixIcon,
+    this.obscure = false,
+    this.controller,
   });
 
   @override
@@ -387,6 +433,7 @@ class _FieldState extends State<_Field> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: widget.controller,
           obscureText: _isObscured,
           style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
           decoration: InputDecoration(

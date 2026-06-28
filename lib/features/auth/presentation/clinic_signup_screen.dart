@@ -2,8 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:csc_picker/csc_picker.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../admin/presentation/admin_dashboard_screen.dart';
+import '../providers/auth_provider.dart';
 
 class ClinicSignupScreen extends StatefulWidget {
   const ClinicSignupScreen({super.key});
@@ -17,7 +19,35 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
   int _currentStep = 0;
   final int _totalSteps = 5;
 
-  void _nextStep() {
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _clinicNameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<void> _nextStep() async {
+    // If we are on Step 4 (Password Setup), trigger registration API before going to Welcome screen
+    if (_currentStep == 3) {
+      final auth = context.read<AuthProvider>();
+      final success = await auth.registerClinic(
+        firstName: _firstNameController.text.isNotEmpty ? _firstNameController.text : 'Admin',
+        lastName: _lastNameController.text.isNotEmpty ? _lastNameController.text : 'User',
+        email: _emailController.text.isNotEmpty ? _emailController.text : 'admin@clinic.com',
+        password: _passwordController.text.isNotEmpty ? _passwordController.text : 'Password123!',
+        clinicName: _clinicNameController.text.isNotEmpty ? _clinicNameController.text : 'My Clinic',
+      );
+
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(auth.error ?? 'Registration failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // Stop and don't go to the next step
+      }
+    }
+
     if (_currentStep < _totalSteps - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
@@ -40,6 +70,11 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _clinicNameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -238,15 +273,15 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _Field(hint: 'First name', isDark: isDark, prefixIcon: Icons.person_outline)),
+              Expanded(child: _Field(hint: 'First name', isDark: isDark, prefixIcon: Icons.person_outline, controller: _firstNameController)),
               const SizedBox(width: 16),
-              Expanded(child: _Field(hint: 'Last name', isDark: isDark, prefixIcon: Icons.person_outline)),
+              Expanded(child: _Field(hint: 'Last name', isDark: isDark, prefixIcon: Icons.person_outline, controller: _lastNameController)),
             ],
           ),
           const SizedBox(height: 24),
           _Field(label: 'Username', hint: 'Enter username', isDark: isDark, prefixIcon: Icons.alternate_email),
           const SizedBox(height: 24),
-          _Field(label: 'Email Address', hint: 'Enter email address', isDark: isDark, prefixIcon: Icons.email_outlined),
+          _Field(label: 'Email Address', hint: 'Enter email address', isDark: isDark, prefixIcon: Icons.email_outlined, controller: _emailController),
           const SizedBox(height: 24),
           _Field(label: 'Phone Number', hint: 'Enter phone number', isDark: isDark, prefixIcon: Icons.phone_outlined),
           
@@ -266,7 +301,7 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Field(label: 'Clinic or Hospital Name', hint: 'Enter clinic or hospital name', isDark: isDark, prefixIcon: Icons.local_hospital_outlined),
+          _Field(label: 'Clinic or Hospital Name', hint: 'Enter clinic or hospital name', isDark: isDark, prefixIcon: Icons.local_hospital_outlined, controller: _clinicNameController),
           const SizedBox(height: 24),
           _Field(label: 'Registration Number', hint: 'Enter registration/license number', isDark: isDark, prefixIcon: Icons.badge_outlined),
           const SizedBox(height: 24),
@@ -377,10 +412,19 @@ class _ClinicSignupScreenState extends State<ClinicSignupScreen> {
       fgColor: fgColor,
       title: "Secure Account",
       subtitle: "",
-      content: _Step4Content(
-        isDark: isDark, 
-        fgColor: fgColor, 
-        bottomActions: _buildBottomActions(nextText: "Continue", onNext: _nextStep, fgColor: fgColor),
+      content: Consumer<AuthProvider>(
+        builder: (context, auth, child) {
+          return _Step4Content(
+            isDark: isDark, 
+            fgColor: fgColor, 
+            passwordController: _passwordController,
+            bottomActions: _buildBottomActions(
+              nextText: auth.isLoading ? "Registering..." : "Continue", 
+              onNext: auth.isLoading ? () {} : _nextStep, 
+              fgColor: fgColor
+            ),
+          );
+        },
       ),
     );
   }
@@ -456,6 +500,7 @@ class _Field extends StatefulWidget {
   final int maxLines;
   final ValueChanged<String>? onChanged;
   final IconData? prefixIcon;
+  final TextEditingController? controller;
 
   const _Field({
     this.label,
@@ -466,6 +511,7 @@ class _Field extends StatefulWidget {
     this.maxLines = 1,
     this.onChanged,
     this.prefixIcon,
+    this.controller,
   });
 
   @override
@@ -505,6 +551,7 @@ class _FieldState extends State<_Field> {
           const SizedBox(height: 8),
         ],
         TextField(
+          controller: widget.controller,
           obscureText: _isObscured,
           maxLines: widget.maxLines,
           onChanged: widget.onChanged,
@@ -657,8 +704,9 @@ class _Step4Content extends StatefulWidget {
   final bool isDark;
   final Color fgColor;
   final Widget bottomActions;
+  final TextEditingController passwordController;
 
-  const _Step4Content({required this.isDark, required this.fgColor, required this.bottomActions});
+  const _Step4Content({required this.isDark, required this.fgColor, required this.bottomActions, required this.passwordController});
 
   @override
   State<_Step4Content> createState() => _Step4ContentState();
@@ -682,6 +730,7 @@ class _Step4ContentState extends State<_Step4Content> {
           isDark: widget.isDark,
           obscure: true,
           prefixIcon: Icons.lock_outline,
+          controller: widget.passwordController,
           onChanged: (val) => setState(() => _password = val),
         ),
         const SizedBox(height: 24),

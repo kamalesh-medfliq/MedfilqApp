@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const Color primaryOrange = Color(0xFFFF6D00);
@@ -14,6 +15,7 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: primaryOrange,
       scaffoldBackgroundColor: lightBackground,
+      textTheme: GoogleFonts.robotoTextTheme(ThemeData.light().textTheme),
       colorScheme: const ColorScheme.light(
         primary: primaryOrange,
         surface: lightBackground,
@@ -27,6 +29,7 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: primaryOrange,
       scaffoldBackgroundColor: darkBackground,
+      textTheme: GoogleFonts.robotoTextTheme(ThemeData.dark().textTheme),
       colorScheme: const ColorScheme.dark(
         primary: primaryOrange,
         surface: darkBackground,

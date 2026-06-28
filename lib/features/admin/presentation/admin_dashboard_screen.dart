@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/login_screen.dart'; 
+import '../../auth/providers/auth_provider.dart';
 import 'widgets/overview_tab.dart'; 
 import 'widgets/doctor_schedule_tab.dart'; 
 import 'widgets/user_management_tab.dart';
@@ -19,6 +22,14 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> with TickerProviderStateMixin {
   late PageController _pageController;
   int _currentIndex = 0;
+
+  final List<String> _tabTitles = [
+    "Overview",
+    "Doctor Schedule",
+    "User Management",
+    "Audit Logs",
+    "Profile",
+  ];
 
   // Custom Drawer Animation Controllers
   late AnimationController _drawerController;
@@ -44,6 +55,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
     _overlayFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _drawerController, curve: Curves.easeOut),
     );
+
+    // Test the protected connection!
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final success = await context.read<AuthProvider>().testAuthConnection();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success 
+              ? '✅ Protected Endpoint Tested Successfully (JWT verified)!' 
+              : '❌ Protected Endpoint Failed. Check console.'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    });
   }
 
   @override
@@ -118,14 +144,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
     final bgColor = isDark ? const Color(0xFF1E1A18) : const Color(0xFFF9F6F0);
     final fgColor = isDark ? Colors.white : Colors.black;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // 1. Main Content Layer
-          Column(
-            children: [
-              _buildAppBar(isDark, fgColor),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        systemNavigationBarColor: isDark ? bgColor.withValues(alpha: 0.98) : bgColor.withValues(alpha: 0.98),
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Stack(
+          children: [
+            // 1. Main Content Layer
+            Column(
+              children: [
+                _buildAppBar(isDark, fgColor),
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -171,17 +202,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
             ),
 
           // 4. Drawer Menu Slide Layer
-          if (_isDrawerOpen)
-            AnimatedBuilder(
-              animation: _drawerController,
-              builder: (context, child) {
-                return FractionalTranslation(
-                  translation: Offset(_drawerSlideAnim.value, 0.0),
-                  child: _buildCustomDrawer(isDark, fgColor),
-                );
-              },
-            ),
-        ],
+              if (_isDrawerOpen)
+                AnimatedBuilder(
+                  animation: _drawerController,
+                  builder: (context, child) {
+                    return FractionalTranslation(
+                      translation: Offset(_drawerSlideAnim.value, 0.0),
+                      child: _buildCustomDrawer(isDark, fgColor),
+                    );
+                  },
+                ),
+            ],
+          ),
       ),
     );
   }
@@ -199,7 +231,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
             ),
             const SizedBox(width: 8),
             Text(
-              "Dashboard",
+              _tabTitles[_currentIndex],
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -251,15 +283,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
   Widget _buildBottomNavItem(int index, IconData unselectedIcon, IconData selectedIcon, Color fgColor) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
-      onTap: () => _onTabTapped(index),
+      onTap: () {
+        _onTabTapped(index);
+        HapticFeedback.lightImpact(); // Subtle haptic feedback like WhatsApp
+      },
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Icon(
-          isSelected ? selectedIcon : unselectedIcon,
-          color: isSelected ? AppTheme.primaryOrange : fgColor.withValues(alpha: 0.4),
-          size: 26,
+      child: AnimatedScale(
+        scale: isSelected ? 1.15 : 1.0, // Popup animation when selected
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack, // Bouncy curve
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Icon(
+            isSelected ? selectedIcon : unselectedIcon,
+            color: isSelected ? AppTheme.primaryOrange : fgColor.withValues(alpha: 0.4),
+            size: 26,
+          ),
         ),
       ),
     );

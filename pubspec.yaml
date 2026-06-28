@@ -8,10 +8,14 @@ environment:
 
 dependencies:
   csc_picker: ^0.2.7
+  dio: ^5.9.2
   flutter:
     sdk: flutter
   flutter_animate: ^4.5.2
+  flutter_secure_storage: ^10.3.1
+  google_fonts: ^8.1.0
   intl: ^0.20.2
+  provider: ^6.1.5+1
   shared_preferences: ^2.5.5
 
 dev_dependencies:

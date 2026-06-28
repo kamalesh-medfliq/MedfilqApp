@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/network/api_client.dart';
 
 class UserManagementTab extends StatefulWidget {
   const UserManagementTab({super.key});
@@ -9,133 +10,58 @@ class UserManagementTab extends StatefulWidget {
 }
 
 class _UserManagementTabState extends State<UserManagementTab> {
-  final Set<int> _selectedUserIds = {};
+  final Set<String> _selectedUserIds = {};
   bool _isBulkMode = false;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _users = [];
 
-  List<Map<String, dynamic>> _dummyUsers = [
-    {
-      "id": 101,
-      "name": "Dr. Emily Chen",
-      "role": "Doctor",
-      "department": "Pediatrics",
-      "status": "Active",
-      "email": "emily.chen@example.com",
-      "phone": "+1 555-0102",
-      "gender": "Female",
-      "qualification": "MD, Pediatrics",
-      "license": "MED-784920",
-      "joiningDate": "12 Jan 2024",
-      "lastLogin": "Today, 08:30 AM",
-      "emailVerified": true,
-      "phoneVerified": true,
-      "permissions": {
-        "View Patients": true,
-        "Edit Patients": true,
-        "Create Prescription": true,
-        "Create SOAP Notes": true,
-        "Manage Appointments": false,
-        "View Reports": false,
-      }
-    },
-    {
-      "id": 102,
-      "name": "Nurse Mark Davis",
-      "role": "Nurse",
-      "department": "Emergency",
-      "status": "Active",
-      "email": "mark.davis@example.com",
-      "phone": "+1 555-0103",
-      "gender": "Male",
-      "qualification": "BSc Nursing",
-      "license": null,
-      "joiningDate": "05 Mar 2025",
-      "lastLogin": "Yesterday, 04:15 PM",
-      "emailVerified": true,
-      "phoneVerified": true,
-      "permissions": {
-        "View Patients": true,
-        "Edit Patients": false,
-        "Create Prescription": false,
-        "Create SOAP Notes": true,
-        "Manage Appointments": false,
-        "View Reports": false,
-      }
-    },
-    {
-      "id": 103,
-      "name": "Administrator",
-      "role": "Administrator",
-      "department": "Management",
-      "status": "Active",
-      "email": "admin@example.com",
-      "phone": "+1 555-0101",
-      "gender": "Not Specified",
-      "qualification": "MHA",
-      "license": null,
-      "joiningDate": "01 Jan 2024",
-      "lastLogin": "Today, 10:00 AM",
-      "emailVerified": true,
-      "phoneVerified": false,
-      "permissions": {
-        "View Patients": true,
-        "Edit Patients": true,
-        "Create Prescription": false,
-        "Create SOAP Notes": false,
-        "Manage Appointments": true,
-        "View Reports": true,
-      }
-    },
-    {
-      "id": 104,
-      "name": "Alex Johnson",
-      "role": "Receptionist",
-      "department": "Front Desk",
-      "status": "Pending",
-      "email": "alex.j@example.com",
-      "phone": "+1 555-0104",
-      "gender": "Non-binary",
-      "qualification": "High School",
-      "license": null,
-      "joiningDate": "20 Jun 2026",
-      "lastLogin": "Never",
-      "emailVerified": false,
-      "phoneVerified": false,
-      "permissions": {
-        "View Patients": true,
-        "Edit Patients": false,
-        "Create Prescription": false,
-        "Create SOAP Notes": false,
-        "Manage Appointments": true,
-        "View Reports": false,
-      }
-    },
-    {
-      "id": 105,
-      "name": "Dr. Sarah Jenkins",
-      "role": "Doctor",
-      "department": "Cardiology",
-      "status": "Inactive",
-      "email": "sarah.j@example.com",
-      "phone": "+1 555-0105",
-      "gender": "Female",
-      "qualification": "MD, Cardiology",
-      "license": "MED-112233",
-      "joiningDate": "15 Feb 2024",
-      "lastLogin": "10 May 2026",
-      "emailVerified": true,
-      "phoneVerified": true,
-      "permissions": {
-        "View Patients": true,
-        "Edit Patients": true,
-        "Create Prescription": true,
-        "Create SOAP Notes": true,
-        "Manage Appointments": false,
-        "View Reports": false,
-      }
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
 
-  void _toggleUserSelection(int id) {
+  Future<void> _fetchUsers() async {
+    try {
+      final response = await ApiClient().dio.get('/users');
+      final List<dynamic> data = response.data;
+      
+      setState(() {
+        _users = data.map((user) {
+          return {
+            "id": user['id'],
+            "name": "${user['firstName']} ${user['lastName']}",
+            "role": user['role'] ?? "Staff",
+            "department": "General", // Default for now
+            "status": "Active",
+            "email": user['email'],
+            "phone": "+1 555-0000",
+            "gender": "Not Specified",
+            "qualification": "N/A",
+            "license": null,
+            "joiningDate": user['createdAt'] != null ? user['createdAt'].toString().substring(0, 10) : "Today",
+            "lastLogin": "Never",
+            "emailVerified": true,
+            "phoneVerified": false,
+            "permissions": {
+              "View Patients": true,
+              "Edit Patients": false,
+            }
+          };
+        }).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching users: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+
+
+  void _toggleUserSelection(String id) {
     setState(() {
       if (_selectedUserIds.contains(id)) {
         _selectedUserIds.remove(id);
@@ -146,7 +72,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
     });
   }
 
-  void _enableBulkMode(int id) {
+  void _enableBulkMode(String id) {
     setState(() {
       _isBulkMode = true;
       _selectedUserIds.add(id);
@@ -156,7 +82,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
   void _toggleAllSelection(bool? value) {
     setState(() {
       if (value == true) {
-        _selectedUserIds.addAll(_dummyUsers.map((e) => e["id"] as int));
+        _selectedUserIds.addAll(_users.map((e) => e["id"] as String));
       } else {
         _selectedUserIds.clear();
         _isBulkMode = false;
@@ -205,8 +131,8 @@ class _UserManagementTabState extends State<UserManagementTab> {
         borderColor: borderColor,
         onAdd: () {
           setState(() {
-            _dummyUsers.insert(0, {
-              "id": DateTime.now().millisecondsSinceEpoch % 10000,
+            _users.insert(0, {
+              "id": DateTime.now().millisecondsSinceEpoch.toString(),
               "name": "New Staff Member",
               "role": "Doctor",
               "department": "General",
@@ -253,7 +179,9 @@ class _UserManagementTabState extends State<UserManagementTab> {
             const SizedBox(height: 24),
             
             // Section 2: User Cards
-            _buildUserCards(isDark, bgColor, fgColor, cardColor, borderColor),
+            _isLoading 
+              ? const Center(child: CircularProgressIndicator()) 
+              : _buildUserCards(isDark, bgColor, fgColor, cardColor, borderColor),
             
             const SizedBox(height: 80),
           ],
@@ -411,7 +339,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
   }
 
   Widget _buildUserCards(bool isDark, Color bgColor, Color fgColor, Color cardColor, Color borderColor) {
-    final bool allSelected = _selectedUserIds.length == _dummyUsers.length && _dummyUsers.isNotEmpty;
+    final bool allSelected = _selectedUserIds.length == _users.length && _users.isNotEmpty;
 
     return Column(
       children: [
@@ -435,7 +363,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
               ),
               const SizedBox(width: 16),
               Text(
-                "${_dummyUsers.length} Staff Total",
+                "${_users.length} Staff Total",
                 style: TextStyle(color: fgColor.withValues(alpha: 0.5), fontSize: 13),
               ),
             ],
@@ -445,13 +373,13 @@ class _UserManagementTabState extends State<UserManagementTab> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                "${_dummyUsers.length} Staff Total",
+                "${_users.length} Staff Total",
                 style: TextStyle(color: fgColor.withValues(alpha: 0.5), fontSize: 13),
               ),
             ],
           ),
         const SizedBox(height: 12),
-        if (_dummyUsers.isEmpty)
+        if (_users.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 64),
@@ -480,7 +408,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
             return Wrap(
               spacing: spacing,
               runSpacing: spacing,
-              children: _dummyUsers.map((user) {
+              children: _users.map((user) {
                 return SizedBox(
                   width: itemWidth,
                   child: _buildUserCard(user, isDark, bgColor, fgColor, cardColor, borderColor),
@@ -547,7 +475,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
                       _showUserProfileModal(user, isDark, bgColor, fgColor, cardColor, borderColor);
                     } else if (value == "Delete") {
                       setState(() {
-                        _dummyUsers.remove(user);
+                        _users.remove(user);
                         _selectedUserIds.remove(user["id"]);
                         if (_selectedUserIds.isEmpty) _isBulkMode = false;
                         _showSnackBar("Action completed successfully");

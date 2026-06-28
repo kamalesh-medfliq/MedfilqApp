@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'features/splash/presentation/splash_screen.dart';
+import 'features/auth/providers/auth_provider.dart';
 
 // Global ValueNotifier to control the ThemeMode dynamically
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
@@ -19,7 +21,14 @@ void main() async {
     themeNotifier.value = ThemeMode.system;
   }
 
-  runApp(const MedFliqApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: const MedFliqApp(),
+    ),
+  );
 }
 
 class MedFliqApp extends StatelessWidget {
