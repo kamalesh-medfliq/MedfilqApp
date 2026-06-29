@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+// Note: You must run `flutterfire configure` to generate this file
+import 'firebase_options.dart'; 
 import 'core/theme/app_theme.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -10,6 +13,10 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+    // Initialize Firebase. When you run `flutterfire configure`, replace this with:
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   final prefs = await SharedPreferences.getInstance();
   final savedThemeIndex = prefs.getInt('themeMode') ?? 0;
   

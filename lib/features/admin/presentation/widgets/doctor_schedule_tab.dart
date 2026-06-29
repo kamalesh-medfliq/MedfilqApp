@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/network/api_client.dart';
 
 class DoctorScheduleTab extends StatefulWidget {
   const DoctorScheduleTab({super.key});
@@ -12,40 +14,49 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
   String _selectedTimeFilter = "Today";
   bool _isGridView = true;
 
-  List<Map<String, dynamic>> _dummyDoctors = [
-    {
-      "name": "Dr. Sarah Jenkins",
-      "department": "Cardiology",
-      "time": "09:00 AM - 01:00 PM",
-      "room": "Room 302 - Wing B",
-      "patients": "14 Patients Scheduled",
-      "status": "Available",
-    },
-    {
-      "name": "Dr. Alan Grant",
-      "department": "Neurology",
-      "time": "10:30 AM - 04:00 PM",
-      "room": "Room 105 - Wing A",
-      "patients": "8 Patients Scheduled",
-      "status": "Busy",
-    },
-    {
-      "name": "Dr. Emily Chen",
-      "department": "Pediatrics",
-      "time": "08:00 AM - 12:00 PM",
-      "room": "Room 410 - Wing C",
-      "patients": "22 Patients Scheduled",
-      "status": "On Leave",
-    },
-    {
-      "name": "Dr. Marcus Brody",
-      "department": "Orthopedics",
-      "time": "01:00 PM - 06:00 PM",
-      "room": "Room 201 - Wing B",
-      "patients": "10 Patients Scheduled",
-      "status": "Available",
-    },
-  ];
+  bool _isLoading = true;
+  List<dynamic> _schedules = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSchedules();
+  }
+
+  Future<void> _fetchSchedules() async {
+    setState(() => _isLoading = true);
+    try {
+      final now = DateTime.now();
+      String? startDate;
+      String? endDate;
+
+      if (_selectedTimeFilter == "Today") {
+        startDate = DateTime(now.year, now.month, now.day).toIso8601String();
+        endDate = DateTime(now.year, now.month, now.day, 23, 59, 59).toIso8601String();
+      } else if (_selectedTimeFilter == "Tomorrow") {
+        final tmrw = now.add(const Duration(days: 1));
+        startDate = DateTime(tmrw.year, tmrw.month, tmrw.day).toIso8601String();
+        endDate = DateTime(tmrw.year, tmrw.month, tmrw.day, 23, 59, 59).toIso8601String();
+      } else if (_selectedTimeFilter == "Week") {
+        startDate = DateTime(now.year, now.month, now.day).toIso8601String();
+        endDate = now.add(const Duration(days: 7)).toIso8601String();
+      }
+
+      final res = await ApiClient().dio.get('/schedules', queryParameters: {
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
+      });
+      setState(() {
+        _schedules = res.data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,28 +68,35 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showSnackBar("Opening Add Schedule form...");
-        },
+        onPressed: _showAddScheduleModal,
         backgroundColor: AppTheme.primaryOrange,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text("Add Schedule", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Section 1: Search & Filters
-            _buildSearchAndFilters(isDark, cardColor, borderColor, fgColor),
-            const SizedBox(height: 24),
-            
-            // Section 2 & 3: Doctor Cards Core Content
-            _buildDoctorCardsGrid(isDark, cardColor, borderColor, fgColor),
-            
-            const SizedBox(height: 80), // Padding for the floating action button
-          ],
+      body: RefreshIndicator(
+        onRefresh: _fetchSchedules,
+        color: AppTheme.primaryOrange,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Section 1: Search & Filters
+              _buildSearchAndFilters(isDark, cardColor, borderColor, fgColor),
+              const SizedBox(height: 24),
+              
+              if (_isLoading)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+                ))
+              else
+                _buildDoctorCardsGrid(isDark, cardColor, borderColor, fgColor),
+              
+              const SizedBox(height: 80), // Padding for the floating action button
+            ],
+          ),
         ),
       ),
     );
@@ -96,53 +114,96 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
     );
   }
 
-  void _handleMenuAction(String action, Map<String, dynamic> doc) {
-    setState(() {
-      if (action == "Delete Schedule" || action == "Cancel Schedule") {
-        _dummyDoctors.remove(doc);
-        _showSnackBar("Action completed successfully");
+  Future<void> _handleMenuAction(String action, Map<String, dynamic> schedule) async {
+    final id = schedule["id"];
+    try {
+      if (action == "Delete Schedule") {
+        await ApiClient().dio.delete('/schedules/$id');
+        _showSnackBar("Schedule deleted successfully");
+        _fetchSchedules();
+      } else if (action == "Cancel Schedule") {
+        await ApiClient().dio.put('/schedules/$id', data: {"status": "CANCELLED"});
+        _showSnackBar("Schedule cancelled");
+        _fetchSchedules();
       } else if (action == "Mark Leave") {
-        doc["status"] = "On Leave";
+        await ApiClient().dio.put('/schedules/$id', data: {"status": "ON_LEAVE"});
         _showSnackBar("Status updated to On Leave");
+        _fetchSchedules();
       } else if (action == "Emergency Assignment") {
-        doc["status"] = "Busy";
+        await ApiClient().dio.put('/schedules/$id', data: {"status": "BUSY"});
         _showSnackBar("Status updated to Busy");
-      } else if (action == "Add Extra Slot") {
-        _showAddSlotModal(doc);
+        _fetchSchedules();
       } else {
         _showSnackBar("$action action triggered");
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
-  void _showAddSlotModal(Map<String, dynamic> doc) {
+  void _showAddScheduleModal() {
+    final doctorIdController = TextEditingController();
+    final roomController = TextEditingController();
+    final startTimeController = TextEditingController();
+    final endTimeController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Add Extra Slot"),
-          content: Text("Add an extra slot for ${doc["name"]}?"),
+          title: const Text("Add Schedule"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: doctorIdController,
+                  decoration: const InputDecoration(labelText: "Doctor ID (UUID)"),
+                ),
+                TextField(
+                  controller: roomController,
+                  decoration: const InputDecoration(labelText: "Room Number"),
+                ),
+                TextField(
+                  controller: startTimeController,
+                  decoration: const InputDecoration(labelText: "Start Time (YYYY-MM-DDTHH:mm:00Z)"),
+                ),
+                TextField(
+                  controller: endTimeController,
+                  decoration: const InputDecoration(labelText: "End Time (YYYY-MM-DDTHH:mm:00Z)"),
+                ),
+              ],
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text("Cancel"),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  _dummyDoctors.add({
-                    "name": doc["name"],
-                    "department": doc["department"],
-                    "time": "06:00 PM - 08:00 PM", // Default extra time
-                    "room": doc["room"],
-                    "patients": "0 Patients Scheduled",
-                    "status": "Available",
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ApiClient().dio.post('/schedules', data: {
+                    "doctorId": doctorIdController.text,
+                    "roomNumber": roomController.text,
+                    "startTime": startTimeController.text,
+                    "endTime": endTimeController.text,
+                    "status": "AVAILABLE"
                   });
-                  _showSnackBar("Extra slot added successfully");
-                });
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showSnackBar("Schedule created successfully");
+                    _fetchSchedules();
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
               },
-              child: const Text("Add"),
+              child: const Text("Create"),
             ),
           ],
         );
@@ -197,7 +258,10 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
                         label: Text(time),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected) setState(() => _selectedTimeFilter = time);
+                          if (selected) {
+                            setState(() => _selectedTimeFilter = time);
+                            _fetchSchedules();
+                          }
                         },
                         selectedColor: AppTheme.primaryOrange.withValues(alpha: 0.15),
                         backgroundColor: cardColor,
@@ -286,7 +350,7 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
   }
 
   Widget _buildDoctorCardsGrid(bool isDark, Color cardColor, Color borderColor, Color fgColor) {
-    if (_dummyDoctors.isEmpty) {
+    if (_schedules.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 64),
@@ -318,10 +382,10 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
-          children: _dummyDoctors.map((doc) {
+          children: _schedules.map((schedule) {
             return SizedBox(
               width: itemWidth,
-              child: _buildDoctorCard(doc, isDark, cardColor, borderColor, fgColor),
+              child: _buildDoctorCard(schedule, isDark, cardColor, borderColor, fgColor),
             );
           }).toList(),
         );
@@ -329,14 +393,24 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
     );
   }
 
-  Widget _buildDoctorCard(Map<String, dynamic> data, bool isDark, Color cardColor, Color borderColor, Color fgColor) {
+  Widget _buildDoctorCard(Map<String, dynamic> schedule, bool isDark, Color cardColor, Color borderColor, Color fgColor) {
     Color statusColor;
-    switch (data["status"]) {
-      case "Available": statusColor = Colors.green; break;
-      case "Busy": statusColor = Colors.orange; break;
-      case "On Leave": statusColor = Colors.red; break;
-      default: statusColor = Colors.grey;
+    String statusDisplay;
+    switch (schedule["status"]) {
+      case "AVAILABLE": statusColor = Colors.green; statusDisplay = "Available"; break;
+      case "BUSY": statusColor = Colors.orange; statusDisplay = "Busy"; break;
+      case "ON_LEAVE": statusColor = Colors.red; statusDisplay = "On Leave"; break;
+      case "CANCELLED": statusColor = Colors.grey; statusDisplay = "Cancelled"; break;
+      default: statusColor = Colors.grey; statusDisplay = schedule["status"] ?? "Unknown";
     }
+
+    final doctor = schedule["doctor"] ?? {};
+    final name = "Dr. ${doctor["firstName"] ?? ''} ${doctor["lastName"] ?? ''}";
+    final department = doctor["department"] ?? 'General';
+    
+    final startTime = DateTime.parse(schedule["startTime"]).toLocal();
+    final endTime = DateTime.parse(schedule["endTime"]).toLocal();
+    final timeStr = "${DateFormat('hh:mm a').format(startTime)} - ${DateFormat('hh:mm a').format(endTime)}";
 
     return Container(
       decoration: BoxDecoration(
@@ -367,14 +441,14 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            data["name"],
+                            name,
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: fgColor),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            data["department"],
+                            department,
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryOrange),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -391,11 +465,11 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildCardRow(Icons.access_time_rounded, data["time"], fgColor),
+                    _buildCardRow(Icons.access_time_rounded, timeStr, fgColor),
                     const SizedBox(height: 10),
-                    _buildCardRow(Icons.meeting_room_rounded, data["room"], fgColor),
+                    _buildCardRow(Icons.meeting_room_rounded, "Room ${schedule["roomNumber"] ?? 'TBD'}", fgColor),
                     const SizedBox(height: 10),
-                    _buildCardRow(Icons.people_outline_rounded, data["patients"], fgColor),
+                    _buildCardRow(Icons.people_outline_rounded, "${schedule["patientCount"] ?? 0} Patients", fgColor),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -417,7 +491,7 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        data["status"],
+                        statusDisplay,
                         style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w800),
                       ),
                     ],
@@ -427,7 +501,7 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
             ),
           ),
           
-          // Trailing PopupMenuButton (10 local actions)
+          // Trailing PopupMenuButton (actions)
           Positioned(
             top: 4,
             right: 4,
@@ -435,18 +509,13 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
               icon: Icon(Icons.more_vert, color: fgColor.withValues(alpha: 0.6)),
               color: isDark ? const Color(0xFF2C2A29) : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              onSelected: (action) => _handleMenuAction(action, data),
+              onSelected: (action) => _handleMenuAction(action, schedule),
               itemBuilder: (context) => [
                 _buildMenuItem("Edit Schedule", Icons.edit_outlined, fgColor),
                 _buildMenuItem("Delete Schedule", Icons.delete_outline, Colors.red),
-                _buildMenuItem("Change Doctor", Icons.swap_horiz_outlined, fgColor),
-                _buildMenuItem("Block Time Slot", Icons.block_outlined, fgColor),
                 _buildMenuItem("Mark Leave", Icons.directions_run_outlined, fgColor),
                 _buildMenuItem("Emergency Assignment", Icons.warning_amber_outlined, Colors.orange),
-                _buildMenuItem("Change Room", Icons.room_preferences_outlined, fgColor),
-                _buildMenuItem("Add Extra Slot", Icons.add_circle_outline, fgColor),
                 _buildMenuItem("Cancel Schedule", Icons.cancel_outlined, Colors.red),
-                _buildMenuItem("View Today's Patients", Icons.visibility_outlined, fgColor),
               ],
             ),
           ),
