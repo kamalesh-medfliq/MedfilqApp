@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "964573288964",
+    "project_id": "medfliqap",
+    "storage_bucket": "medfliqap.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964573288964:android:185c3c406d5b9d83197351",
+        "android_client_info": {
+          "package_name": "com.example.medfliq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpxG3tAeLeqvOr2Cil2PTHg-9fUGR5mv4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

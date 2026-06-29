@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/network/api_client.dart';
 import '../audit_logs_page.dart';
 
 class AuditLogsTab extends StatefulWidget {
@@ -10,68 +11,52 @@ class AuditLogsTab extends StatefulWidget {
 }
 
 class _AuditLogsTabState extends State<AuditLogsTab> {
-  final List<Map<String, dynamic>> _dummyLogs = [
-    {
-      "action": "Doctor Schedule Updated",
-      "user": "System Administrator",
-      "role": "Administrator",
-      "timestamp": "Oct 24, 10:45 AM",
-      "status": "Success",
-      "device": "MacBook Pro - Chrome",
-      "ip": "192.168.1.45",
-      "location": "Chennai, India",
-    },
-    {
-      "action": "Failed Login Attempt",
-      "user": "Nurse Supervisor",
-      "role": "Nurse",
-      "timestamp": "Oct 24, 09:12 AM",
-      "status": "Failed - Invalid Password",
-      "device": "iPhone 14 Pro - Safari",
-      "ip": "112.134.55.22",
-      "location": "Mumbai, India",
-    },
-    {
-      "action": "Patient Record Edited",
-      "user": "Dr. Resident",
-      "role": "Doctor",
-      "timestamp": "Oct 23, 04:30 PM",
-      "status": "Success",
-      "device": "Dell XPS 15 - Edge",
-      "ip": "192.168.1.50",
-      "location": "Chennai, India",
-    },
-    {
-      "action": "User Deleted",
-      "user": "System Administrator",
-      "role": "Administrator",
-      "timestamp": "Oct 23, 02:15 PM",
-      "status": "Success",
-      "device": "MacBook Pro - Chrome",
-      "ip": "192.168.1.45",
-      "location": "Chennai, India",
-    },
-    {
-      "action": "Settings Changed (Security)",
-      "user": "System Administrator",
-      "role": "Administrator",
-      "timestamp": "Oct 22, 11:00 AM",
-      "status": "Success",
-      "device": "Windows Desktop - Chrome",
-      "ip": "192.168.1.12",
-      "location": "Chennai, India",
-    },
-    {
-      "action": "Account Locked",
-      "user": "Unknown User",
-      "role": "Guest",
-      "timestamp": "Oct 21, 08:20 PM",
-      "status": "Failed - Max Attempts",
-      "device": "Unknown Device",
-      "ip": "104.22.45.99",
-      "location": "Unknown",
-    },
-  ];
+  bool _isLoading = true;
+  List<dynamic> _auditLogs = [];
+  int _page = 1;
+  bool _hasMore = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLogs();
+  }
+
+  Future<void> _fetchLogs({bool loadMore = false}) async {
+    if (loadMore) {
+      if (!_hasMore) return;
+      _page++;
+    } else {
+      _page = 1;
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final res = await ApiClient().dio.get('/audit', queryParameters: {
+        'page': _page,
+        'limit': 20,
+      });
+
+      final data = res.data['data'] as List;
+      final meta = res.data['meta'];
+
+      setState(() {
+        if (loadMore) {
+          _auditLogs.addAll(data);
+        } else {
+          _auditLogs = data;
+        }
+        _hasMore = _page < meta['totalPages'];
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading audit logs: $e')));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +96,24 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fgColor),
             ),
             const SizedBox(height: 16),
-            _buildAuditLogs(isDark, cardColor, borderColor, fgColor),
+            if (_isLoading)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: CircularProgressIndicator(),
+              ))
+            else
+              _buildAuditLogs(isDark, cardColor, borderColor, fgColor),
+            
+            if (_hasMore && !_isLoading)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => _fetchLogs(loadMore: true),
+                    child: const Text("Load More", style: TextStyle(color: AppTheme.primaryOrange)),
+                  ),
+                ),
+              ),
             
             const SizedBox(height: 80), // Bottom Nav padding
           ],
@@ -293,16 +295,37 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
   }
 
   Widget _buildAuditLogs(bool isDark, Color cardColor, Color borderColor, Color fgColor) {
+    if (_auditLogs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+        ),
+        child: Center(
+          child: Text("No audit logs found", style: TextStyle(color: fgColor.withValues(alpha: 0.5))),
+        ),
+      );
+    }
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _dummyLogs.length,
+      itemCount: _auditLogs.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final log = _dummyLogs[index];
-        final bool isSuccess = log["status"] == "Success";
+        final log = _auditLogs[index];
+        final bool isSuccess = log["status"] == "SUCCESS";
         final statusColor = isSuccess ? Colors.green : Colors.red;
         final statusIcon = isSuccess ? Icons.check_circle_rounded : Icons.cancel_rounded;
+
+        final actionFormatted = log["action"].toString().replaceAll("_", " ");
+        final userName = log["user"] != null ? "${log["user"]["firstName"]} ${log["user"]["lastName"]}" : "System";
+        final userRole = log["user"] != null ? log["user"]["role"] : "System";
+        
+        final date = DateTime.parse(log["createdAt"]).toLocal();
+        final timestamp = "${date.month}/${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
 
         return Container(
           decoration: BoxDecoration(
@@ -317,13 +340,13 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               leading: Icon(statusIcon, color: statusColor, size: 28),
               title: Text(
-                log["action"],
+                actionFormatted,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: fgColor),
               ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  "${log["user"]} • ${log["role"]} • ${log["timestamp"]}",
+                  "$userName • $userRole • $timestamp",
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fgColor.withValues(alpha: 0.6)),
                 ),
               ),
@@ -337,9 +360,9 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildDetailRow("Device", log["device"], fgColor),
+                          _buildDetailRow("Device", log["device"] ?? "N/A", fgColor),
                           const SizedBox(height: 12),
-                          _buildDetailRow("Location", log["location"], fgColor),
+                          _buildDetailRow("Location", log["location"] ?? "N/A", fgColor),
                         ],
                       ),
                     ),
@@ -347,7 +370,7 @@ class _AuditLogsTabState extends State<AuditLogsTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildDetailRow("IP Address", log["ip"], fgColor),
+                          _buildDetailRow("IP Address", log["ipAddress"] ?? "N/A", fgColor),
                           const SizedBox(height: 12),
                           _buildDetailRow("Result", log["status"], fgColor, valueColor: statusColor),
                         ],

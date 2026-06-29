@@ -31,22 +31,21 @@ class _UserManagementTabState extends State<UserManagementTab> {
           return {
             "id": user['id'],
             "name": "${user['firstName']} ${user['lastName']}",
-            "role": user['role'] ?? "Staff",
-            "department": "General", // Default for now
-            "status": "Active",
+            "role": user['role'] ?? "N/A",
+            "department": user['department'] ?? "N/A",
+            "status": user['status'] != null 
+                ? "${user['status'].toString()[0].toUpperCase()}${user['status'].toString().substring(1).toLowerCase()}" 
+                : "Pending",
             "email": user['email'],
-            "phone": "+1 555-0000",
+            "phone": user['phone'] ?? "N/A",
             "gender": "Not Specified",
             "qualification": "N/A",
             "license": null,
-            "joiningDate": user['createdAt'] != null ? user['createdAt'].toString().substring(0, 10) : "Today",
-            "lastLogin": "Never",
+            "joiningDate": user['createdAt'] != null ? user['createdAt'].toString().substring(0, 10) : "N/A",
+            "lastLogin": "N/A",
             "emailVerified": true,
             "phoneVerified": false,
-            "permissions": {
-              "View Patients": true,
-              "Edit Patients": false,
-            }
+            "permissions": user['permissions'] ?? {}
           };
         }).toList();
         _isLoading = false;
@@ -129,30 +128,31 @@ class _UserManagementTabState extends State<UserManagementTab> {
         fgColor: fgColor, 
         cardColor: cardColor, 
         borderColor: borderColor,
-        onAdd: () {
-          setState(() {
-            _users.insert(0, {
-              "id": DateTime.now().millisecondsSinceEpoch.toString(),
-              "name": "New Staff Member",
-              "role": "Doctor",
-              "department": "General",
-              "status": "Active",
-              "email": "new.staff@example.com",
-              "phone": "+1 555-0000",
-              "gender": "Not Specified",
-              "qualification": "MD",
-              "license": "MED-000",
-              "joiningDate": "Today",
-              "lastLogin": "Never",
-              "emailVerified": false,
-              "phoneVerified": false,
-              "permissions": {
-                "View Patients": true,
-                "Edit Patients": false,
-              }
-            });
-            _showSnackBar("New staff member added successfully");
-          });
+        onSuccess: () {
+          _showSnackBar("New staff member added successfully");
+          setState(() { _isLoading = true; });
+          _fetchUsers();
+        },
+      ),
+    );
+  }
+
+  void _showEditStaffModal(Map<String, dynamic> user, bool isDark, Color bgColor, Color fgColor, Color cardColor, Color borderColor) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EditStaffModal(
+        user: user,
+        isDark: isDark, 
+        bgColor: bgColor, 
+        fgColor: fgColor, 
+        cardColor: cardColor, 
+        borderColor: borderColor,
+        onSuccess: () {
+          _showSnackBar("Staff member updated successfully");
+          setState(() { _isLoading = true; });
+          _fetchUsers();
         },
       ),
     );
@@ -168,23 +168,27 @@ class _UserManagementTabState extends State<UserManagementTab> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Section 1: Top Bar
-            _buildTopBar(isDark, cardColor, borderColor, fgColor),
-            const SizedBox(height: 24),
-            
-            // Section 2: User Cards
-            _isLoading 
-              ? const Center(child: CircularProgressIndicator()) 
-              : _buildUserCards(isDark, bgColor, fgColor, cardColor, borderColor),
-            
-            const SizedBox(height: 80),
-          ],
+      body: RefreshIndicator(
+        onRefresh: _fetchUsers,
+        color: AppTheme.primaryOrange,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Section 1: Top Bar
+              _buildTopBar(isDark, cardColor, borderColor, fgColor),
+              const SizedBox(height: 24),
+              
+              // Section 2: User Cards
+              _isLoading 
+                ? const Center(child: CircularProgressIndicator()) 
+                : _buildUserCards(isDark, bgColor, fgColor, cardColor, borderColor),
+              
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
@@ -470,26 +474,41 @@ class _UserManagementTabState extends State<UserManagementTab> {
                   icon: Icon(Icons.more_horiz, color: fgColor.withValues(alpha: 0.5)),
                   color: isDark ? const Color(0xFF2C2A29) : Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  onSelected: (value) {
-                    if (value == "View Profile" || value == "Edit") {
+                  onSelected: (value) async {
+                    if (value == "View Profile") {
                       _showUserProfileModal(user, isDark, bgColor, fgColor, cardColor, borderColor);
+                    } else if (value == "Edit") {
+                      _showEditStaffModal(user, isDark, bgColor, fgColor, cardColor, borderColor);
                     } else if (value == "Delete") {
-                      setState(() {
-                        _users.remove(user);
-                        _selectedUserIds.remove(user["id"]);
-                        if (_selectedUserIds.isEmpty) _isBulkMode = false;
-                        _showSnackBar("Action completed successfully");
-                      });
+                      try {
+                        setState(() => _isLoading = true);
+                        await ApiClient().dio.delete('/users/${user["id"]}');
+                        _showSnackBar("User deleted successfully");
+                        _fetchUsers();
+                      } catch (e) {
+                        _showSnackBar("Failed to delete user: $e");
+                        setState(() => _isLoading = false);
+                      }
                     } else if (value == "Suspend") {
-                      setState(() {
-                        user["status"] = "Inactive";
-                        _showSnackBar("User suspended");
-                      });
+                      try {
+                        setState(() => _isLoading = true);
+                        await ApiClient().dio.patch('/users/${user["id"]}/status', data: {"status": "SUSPENDED"});
+                        _showSnackBar("User suspended successfully");
+                        _fetchUsers();
+                      } catch (e) {
+                        _showSnackBar("Failed to suspend user: $e");
+                        setState(() => _isLoading = false);
+                      }
                     } else if (value == "Activate") {
-                      setState(() {
-                        user["status"] = "Active";
-                        _showSnackBar("User activated");
-                      });
+                      try {
+                        setState(() => _isLoading = true);
+                        await ApiClient().dio.patch('/users/${user["id"]}/status', data: {"status": "ACTIVE"});
+                        _showSnackBar("User activated successfully");
+                        _fetchUsers();
+                      } catch (e) {
+                        _showSnackBar("Failed to activate user: $e");
+                        setState(() => _isLoading = false);
+                      }
                     }
                   },
                   itemBuilder: (context) => [
@@ -842,7 +861,7 @@ class _AddStaffModal extends StatefulWidget {
   final Color fgColor;
   final Color cardColor;
   final Color borderColor;
-  final VoidCallback? onAdd;
+  final VoidCallback? onSuccess;
 
   const _AddStaffModal({
     required this.isDark,
@@ -850,7 +869,7 @@ class _AddStaffModal extends StatefulWidget {
     required this.fgColor,
     required this.cardColor,
     required this.borderColor,
-    this.onAdd,
+    this.onSuccess,
   });
 
   @override
@@ -858,8 +877,56 @@ class _AddStaffModal extends StatefulWidget {
 }
 
 class _AddStaffModalState extends State<_AddStaffModal> {
-  String _selectedRole = 'Doctor';
+  String _selectedRole = 'DOCTOR';
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
+
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_firstNameController.text.isEmpty || _lastNameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await ApiClient().dio.post('/users', data: {
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'phone': _phoneController.text.trim(),
+        'role': _selectedRole,
+      });
+      
+      if (mounted) {
+        Navigator.pop(context);
+        if (widget.onSuccess != null) widget.onSuccess!();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to add user: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -887,11 +954,17 @@ class _AddStaffModalState extends State<_AddStaffModal> {
                 ],
               ),
               const SizedBox(height: 24),
-              _buildField("Full Name", "Enter name", Icons.person_outline),
+              Row(
+                children: [
+                  Expanded(child: _buildField("First Name", "First name", Icons.person_outline, controller: _firstNameController)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildField("Last Name", "Last name", Icons.person_outline, controller: _lastNameController)),
+                ],
+              ),
               const SizedBox(height: 16),
-              _buildField("Phone Number", "Enter phone", Icons.phone_outlined),
+              _buildField("Phone Number", "Enter phone (optional)", Icons.phone_outlined, controller: _phoneController),
               const SizedBox(height: 16),
-              _buildField("Email Address", "Enter email", Icons.email_outlined),
+              _buildField("Email Address", "Enter email", Icons.email_outlined, controller: _emailController),
               const SizedBox(height: 16),
               Text("Role", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
               const SizedBox(height: 8),
@@ -899,31 +972,36 @@ class _AddStaffModalState extends State<_AddStaffModal> {
                 value: _selectedRole,
                 decoration: _inputDecoration("Select role"),
                 dropdownColor: widget.cardColor,
-                items: ["Doctor", "Nurse", "Administrator", "Receptionist", "Pharmacist"]
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r, style: TextStyle(color: widget.fgColor))))
-                    .toList(),
+                items: [
+                  const DropdownMenuItem(value: "DOCTOR", child: Text("Doctor")),
+                  const DropdownMenuItem(value: "NURSE", child: Text("Nurse")),
+                  const DropdownMenuItem(value: "CLINIC_ADMIN", child: Text("Administrator")),
+                  const DropdownMenuItem(value: "RECEPTIONIST", child: Text("Receptionist")),
+                ].map((item) {
+                  return DropdownMenuItem<String>(
+                    value: item.value,
+                    child: Text((item.child as Text).data!, style: TextStyle(color: widget.fgColor)),
+                  );
+                }).toList(),
                 onChanged: (val) {
                   if (val != null) setState(() => _selectedRole = val);
                 },
               ),
               const SizedBox(height: 16),
-              _buildField("Password", "Create password", Icons.lock_outline, obscure: _obscurePassword, onToggleObscure: () {
+              _buildField("Password", "Create password", Icons.lock_outline, obscure: _obscurePassword, controller: _passwordController, onToggleObscure: () {
                 setState(() => _obscurePassword = !_obscurePassword);
               }),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  if (widget.onAdd != null) {
-                    widget.onAdd!();
-                  }
-                },
+                onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryOrange,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Add Staff", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                child: _isSubmitting 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Add Staff", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -932,13 +1010,14 @@ class _AddStaffModalState extends State<_AddStaffModal> {
     );
   }
 
-  Widget _buildField(String label, String hint, IconData icon, {bool obscure = false, VoidCallback? onToggleObscure}) {
+  Widget _buildField(String label, String hint, IconData icon, {bool obscure = false, TextEditingController? controller, VoidCallback? onToggleObscure}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
         const SizedBox(height: 8),
         TextFormField(
+          controller: controller,
           obscureText: obscure,
           style: TextStyle(color: widget.fgColor, fontSize: 15),
           decoration: _inputDecoration(hint).copyWith(
@@ -968,3 +1047,200 @@ class _AddStaffModalState extends State<_AddStaffModal> {
     );
   }
 }
+
+class _EditStaffModal extends StatefulWidget {
+  final Map<String, dynamic> user;
+  final bool isDark;
+  final Color bgColor;
+  final Color fgColor;
+  final Color cardColor;
+  final Color borderColor;
+  final VoidCallback? onSuccess;
+
+  const _EditStaffModal({
+    required this.user,
+    required this.isDark,
+    required this.bgColor,
+    required this.fgColor,
+    required this.cardColor,
+    required this.borderColor,
+    this.onSuccess,
+  });
+
+  @override
+  State<_EditStaffModal> createState() => _EditStaffModalState();
+}
+
+class _EditStaffModalState extends State<_EditStaffModal> {
+  late String _selectedRole;
+  bool _isSubmitting = false;
+
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    final nameParts = widget.user['name'].toString().split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+    
+    _firstNameController = TextEditingController(text: firstName);
+    _lastNameController = TextEditingController(text: lastName);
+    _phoneController = TextEditingController(text: widget.user['phone'] ?? '');
+    
+    String roleStr = widget.user['role'].toString().toUpperCase();
+    if (roleStr == "ADMINISTRATOR") roleStr = "CLINIC_ADMIN";
+    
+    if (["DOCTOR", "NURSE", "CLINIC_ADMIN", "RECEPTIONIST"].contains(roleStr)) {
+      _selectedRole = roleStr;
+    } else {
+      _selectedRole = "DOCTOR";
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_firstNameController.text.isEmpty || _lastNameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await ApiClient().dio.put('/users/${widget.user["id"]}', data: {
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'role': _selectedRole,
+      });
+      
+      if (mounted) {
+        Navigator.pop(context);
+        if (widget.onSuccess != null) widget.onSuccess!();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update user: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: widget.bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Edit Staff", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: widget.fgColor)),
+                  IconButton(
+                    icon: Icon(Icons.close, color: widget.fgColor.withValues(alpha: 0.5)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: _buildField("First Name", "First name", Icons.person_outline, controller: _firstNameController)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildField("Last Name", "Last name", Icons.person_outline, controller: _lastNameController)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildField("Phone Number", "Enter phone", Icons.phone_outlined, controller: _phoneController),
+              const SizedBox(height: 16),
+              Text("Role", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: _inputDecoration("Select role"),
+                dropdownColor: widget.cardColor,
+                items: [
+                  const DropdownMenuItem(value: "DOCTOR", child: Text("Doctor")),
+                  const DropdownMenuItem(value: "NURSE", child: Text("Nurse")),
+                  const DropdownMenuItem(value: "CLINIC_ADMIN", child: Text("Administrator")),
+                  const DropdownMenuItem(value: "RECEPTIONIST", child: Text("Receptionist")),
+                ].map((item) {
+                  return DropdownMenuItem<String>(
+                    value: item.value,
+                    child: Text((item.child as Text).data!, style: TextStyle(color: widget.fgColor)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedRole = val);
+                },
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _isSubmitting 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Save Changes", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(String label, String hint, IconData icon, {TextEditingController? controller}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.fgColor.withValues(alpha: 0.7))),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          style: TextStyle(color: widget.fgColor, fontSize: 15),
+          decoration: _inputDecoration(hint).copyWith(
+            prefixIcon: Icon(icon, color: widget.fgColor.withValues(alpha: 0.4), size: 20),
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: widget.fgColor.withValues(alpha: 0.4)),
+      filled: true,
+      fillColor: widget.cardColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.borderColor)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.borderColor)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryOrange)),
+    );
+  }
+}
+
