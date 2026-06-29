@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/network/api_client.dart';
 
@@ -178,7 +179,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Section 1: Top Bar
-              _buildTopBar(isDark, cardColor, borderColor, fgColor),
+              _buildTopBar(isDark, cardColor, borderColor, fgColor, bgColor),
               const SizedBox(height: 24),
               
               // Section 2: User Cards
@@ -194,7 +195,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
     );
   }
 
-  Widget _buildTopBar(bool isDark, Color cardColor, Color borderColor, Color fgColor) {
+  Widget _buildTopBar(bool isDark, Color cardColor, Color borderColor, Color fgColor, Color bgColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -204,7 +205,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
           children: [
             Text("Staff Directory", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: fgColor)),
             ElevatedButton.icon(
-              onPressed: () => _showAddStaffModal(isDark, const Color(0xFFF9F6F0), fgColor, cardColor, borderColor),
+              onPressed: () => _showAddStaffModal(isDark, bgColor, fgColor, cardColor, borderColor),
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text("Add Staff", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
@@ -918,6 +919,28 @@ class _AddStaffModalState extends State<_AddStaffModal> {
       if (mounted) {
         Navigator.pop(context);
         if (widget.onSuccess != null) widget.onSuccess!();
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        String errorMessage = 'Failed to add user: ${e.message}';
+        if (e.response?.data != null && e.response?.data is Map) {
+          final data = e.response!.data as Map;
+          if (data.containsKey('errors') && data['errors'] is List) {
+            final errors = data['errors'] as List;
+            final errorMessages = errors.map((err) {
+              final path = err['path'] != null && (err['path'] as List).isNotEmpty ? err['path'][0] : 'Field';
+              return '$path: ${err['message']}';
+            }).join('\\n');
+            errorMessage = 'Validation Errors:\\n$errorMessages';
+          } else if (data.containsKey('message')) {
+            errorMessage = data['message'].toString();
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ));
       }
     } catch (e) {
       if (mounted) {
