@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/network/api_client.dart';
+import 'add_schedule_modal.dart';
 
 class DoctorScheduleTab extends StatefulWidget {
   const DoctorScheduleTab({super.key});
@@ -144,69 +145,10 @@ class _DoctorScheduleTabState extends State<DoctorScheduleTab> {
   }
 
   void _showAddScheduleModal() {
-    final doctorIdController = TextEditingController();
-    final roomController = TextEditingController();
-    final startTimeController = TextEditingController();
-    final endTimeController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Add Schedule"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: doctorIdController,
-                  decoration: const InputDecoration(labelText: "Doctor ID (UUID)"),
-                ),
-                TextField(
-                  controller: roomController,
-                  decoration: const InputDecoration(labelText: "Room Number"),
-                ),
-                TextField(
-                  controller: startTimeController,
-                  decoration: const InputDecoration(labelText: "Start Time (YYYY-MM-DDTHH:mm:00Z)"),
-                ),
-                TextField(
-                  controller: endTimeController,
-                  decoration: const InputDecoration(labelText: "End Time (YYYY-MM-DDTHH:mm:00Z)"),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await ApiClient().dio.post('/schedules', data: {
-                    "doctorId": doctorIdController.text,
-                    "roomNumber": roomController.text,
-                    "startTime": startTimeController.text,
-                    "endTime": endTimeController.text,
-                    "status": "AVAILABLE"
-                  });
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    _showSnackBar("Schedule created successfully");
-                    _fetchSchedules();
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              },
-              child: const Text("Create"),
-            ),
-          ],
-        );
+        return AddScheduleModal(onScheduleAdded: _fetchSchedules);
       },
     );
   }

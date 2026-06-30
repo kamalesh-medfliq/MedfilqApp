@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiClient {
@@ -10,15 +11,9 @@ class ApiClient {
   late Dio dio;
   final _storage = const FlutterSecureStorage();
 
-  // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/Web.
+  // Use dotenv for the baseUrl, falling back to localhost if not set
   static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:3000';
-    }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000';
-    }
-    return 'http://localhost:3000';
+    return dotenv.env['API_URL'] ?? 'http://localhost:3000';
   }
 
   ApiClient._internal() {

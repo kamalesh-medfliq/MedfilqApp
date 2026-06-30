@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,12 +9,15 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/patients/providers/patient_provider.dart';
+import 'features/appointments/providers/appointment_provider.dart';
 
 // Global ValueNotifier to control the ThemeMode dynamically
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   
     // Initialize Firebase. When you run `flutterfire configure`, replace this with:
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -32,6 +37,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PatientProvider()),
+        ChangeNotifierProvider(create: (_) => AppointmentProvider()),
       ],
       child: const MedFliqApp(),
     ),

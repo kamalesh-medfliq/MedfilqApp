@@ -10,6 +10,8 @@ import 'widgets/doctor_schedule_tab.dart';
 import 'widgets/user_management_tab.dart';
 import 'widgets/audit_logs_tab.dart';
 import 'widgets/profile_tab.dart';
+import '../../patients/presentation/screens/patients_screen.dart';
+import '../../appointments/presentation/screens/appointments_screen.dart';
 import 'system_health_page.dart'; // Add this import
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -25,9 +27,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
 
   final List<String> _tabTitles = [
     "Overview",
+    "Patients",
+    "Appointments",
     "Doctor Schedule",
     "User Management",
-    "Audit Logs",
     "Profile",
   ];
 
@@ -107,10 +110,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
 
   void _onDrawerItemTapped(int index) {
     _toggleDrawer();
-    // Indices 0-4 correspond to the main dashboard tabs
-    if (index < 5) {
+    // Indices 0-5 correspond to the main dashboard tabs
+    if (index < 6) {
       _onTabTapped(index);
-    } else if (index == 5) {
+    } else if (index == 6) {
+      // Audit Logs
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Audit Logs')), body: const AuditLogsTab())));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Audit Logs')), body: const AuditLogsTab())));
+    } else if (index == 7) {
       Navigator.push(
         context,
         PageRouteBuilder(
@@ -129,7 +136,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
           },
         ),
       );
-    } else if (index == 9) {
+    } else if (index == 11) {
       // Logout logic
       Navigator.pushReplacement(
         context,
@@ -165,12 +172,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                       _currentIndex = index;
                     });
                   },
-                  children: const [
-                    OverviewTab(), // Replaced Placeholder with OverviewTab
-                    DoctorScheduleTab(), // Replaced Placeholder with DoctorScheduleTab
-                    UserManagementTab(), // Replaced Placeholder with UserManagementTab
-                    AuditLogsTab(), // Replaced Placeholder with AuditLogsTab
-                    ProfileTab(), // Replaced Placeholder with ProfileTab
+                  children: [
+                    const OverviewTab(), // Replaced Placeholder with OverviewTab
+                    const PatientsScreen(),
+                    const AppointmentsScreen(),
+                    const DoctorScheduleTab(), // Replaced Placeholder with DoctorScheduleTab
+                    const UserManagementTab(), // Replaced Placeholder with UserManagementTab
+                    const ProfileTab(), // Replaced Placeholder with ProfileTab
                   ],
                 ),
               ),
@@ -269,10 +277,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildBottomNavItem(0, Icons.grid_view_rounded, Icons.grid_view_rounded, fgColor),
-              _buildBottomNavItem(1, Icons.calendar_today_outlined, Icons.calendar_month_rounded, fgColor),
-              _buildBottomNavItem(2, Icons.people_outline_rounded, Icons.people_rounded, fgColor),
-              _buildBottomNavItem(3, Icons.list_alt_rounded, Icons.list_alt_rounded, fgColor),
-              _buildBottomNavItem(4, Icons.person_outline_rounded, Icons.person_rounded, fgColor),
+              _buildBottomNavItem(1, Icons.accessible_forward, Icons.accessible_rounded, fgColor),
+              _buildBottomNavItem(2, Icons.calendar_month_outlined, Icons.calendar_month, fgColor),
+              _buildBottomNavItem(3, Icons.calendar_today_outlined, Icons.calendar_today_rounded, fgColor),
+              _buildBottomNavItem(4, Icons.people_outline_rounded, Icons.people_rounded, fgColor),
+              _buildBottomNavItem(5, Icons.person_outline_rounded, Icons.person_rounded, fgColor),
             ],
           ),
         ),
@@ -367,19 +376,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                 children: [
                   _buildDrawerItem(index: 0, icon: Icons.grid_view_rounded, title: "Overview", fgColor: fgColor),
-                  _buildDrawerItem(index: 1, icon: Icons.calendar_month_rounded, title: "Doctor Schedule", fgColor: fgColor),
-                  _buildDrawerItem(index: 2, icon: Icons.people_rounded, title: "User Management", fgColor: fgColor),
-                  _buildDrawerItem(index: 3, icon: Icons.list_alt_rounded, title: "Audit Logs", fgColor: fgColor),
-                  _buildDrawerItem(index: 4, icon: Icons.person_rounded, title: "Profile", fgColor: fgColor),
-                  _buildDrawerItem(index: 5, icon: Icons.monitor_heart_outlined, title: "System Health", fgColor: fgColor),
+                  _buildDrawerItem(index: 1, icon: Icons.accessible_rounded, title: "Patients", fgColor: fgColor),
+                  _buildDrawerItem(index: 2, icon: Icons.calendar_month, title: "Appointments", fgColor: fgColor),
+                  _buildDrawerItem(index: 3, icon: Icons.calendar_today_rounded, title: "Doctor Schedule", fgColor: fgColor),
+                  _buildDrawerItem(index: 4, icon: Icons.people_rounded, title: "User Management", fgColor: fgColor),
+                  _buildDrawerItem(index: 5, icon: Icons.person_rounded, title: "Profile", fgColor: fgColor),
+                  _buildDrawerItem(index: 6, icon: Icons.list_alt_rounded, title: "Audit Logs", fgColor: fgColor),
+                  _buildDrawerItem(index: 7, icon: Icons.monitor_heart_outlined, title: "System Health", fgColor: fgColor),
                   const SizedBox(height: 24),
                   Divider(color: fgColor.withValues(alpha: 0.08)),
                   const SizedBox(height: 24),
-                  _buildDrawerItem(index: 6, icon: Icons.settings_rounded, title: "Settings", fgColor: fgColor),
-                  _buildDrawerItem(index: 7, icon: Icons.help_outline_rounded, title: "Help & Support", fgColor: fgColor),
-                  _buildDrawerItem(index: 8, icon: Icons.privacy_tip_outlined, title: "Privacy Policy", fgColor: fgColor),
+                  _buildDrawerItem(index: 8, icon: Icons.settings_rounded, title: "Settings", fgColor: fgColor),
+                  _buildDrawerItem(index: 9, icon: Icons.help_outline_rounded, title: "Help & Support", fgColor: fgColor),
+                  _buildDrawerItem(index: 10, icon: Icons.privacy_tip_outlined, title: "Privacy Policy", fgColor: fgColor),
                   const SizedBox(height: 40),
-                  _buildDrawerItem(index: 9, icon: Icons.logout_rounded, title: "Logout", fgColor: fgColor),
+                  _buildDrawerItem(index: 11, icon: Icons.logout_rounded, title: "Logout", fgColor: fgColor),
                 ],
               ),
             ),
@@ -395,8 +406,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Ticker
     required String title,
     required Color fgColor,
   }) {
-    // 0-4 are main dashboard tabs, so they share selected state
-    final isSelected = index < 5 && _currentIndex == index;
+    // 0-5 are main dashboard tabs, so they share selected state
+    final isSelected = index < 6 && _currentIndex == index;
 
     // Staggered slide/fade animation for each menu item
     final start = (index * 0.05).clamp(0.0, 1.0);
